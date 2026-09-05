@@ -74,6 +74,23 @@ signal-site repo, Contents + Metadata read) to fire automatically. Without it
 the job passes and prints the manual step, rather than turning every push red
 over an optional secret.
 
+### Two secrets, in two different repos
+
+Easy to conflate, so:
+
+| Secret | Lives in | Lets |
+| --- | --- | --- |
+| `SIGNAL_SITE_DISPATCH_TOKEN` | **this** repo | this repo ask signal-site to redeploy |
+| `EXTERNAL_REPO_TOKEN` | **signal-site** | signal-site clone this repo |
+
+`EXTERNAL_REPO_TOKEN` is the one that is not optional. This repo is private,
+and a workflow's `GITHUB_TOKEN` is scoped to the repo it runs in, so
+signal-site's runner cannot clone this one without a PAT — `Contents: read`
+here is enough. It is the single step that works on a developer's machine
+(where git uses their own credentials) and fails on the runner, so it is worth
+doing before the first deploy rather than after the first red run. Making this
+repo public removes the requirement entirely.
+
 ---
 
 ## Publishing by hand
