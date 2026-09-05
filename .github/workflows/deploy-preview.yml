@@ -1,17 +1,22 @@
-name: Deploy to Cloudflare Pages
+name: Deploy preview to Cloudflare Pages
 
-# Direct-upload deploy. Pages, not Workers: a Workers custom domain requires
-# the zone to live on Cloudflare, and signalaegis.com stays on Google
-# nameservers because Workspace mail is there. Pages will serve a hostname
-# whose DNS is hosted elsewhere, via a CNAME to *.pages.dev.
+# OPTIONAL, and never the production path.
 #
-# Setup, once — the full walkthrough is in docs/DEPLOY.md:
-#   1. Create the project (the dashboard no longer offers this; the CLI does):
-#        npx wrangler login
-#        npx wrangler pages project create <project> --production-branch main
-#      Record the *assigned* *.pages.dev subdomain from the output — if the
-#      name was taken Cloudflare suffixes it, and that assigned value, not the
-#      project name, is the CNAME target.
+# Production is https://apps.signalaegis.com/texts/, which is served by the
+# `signal-site` Pages project from a different repo. That project's CI builds
+# this repo and copies site/texts/ into its own output — see docs/DEPLOY.md.
+#
+# A Pages direct upload replaces the target project's ENTIRE file set. Pointing
+# this workflow at the project that owns apps.signalaegis.com would therefore
+# delete every other app on that host. It deploys to a standalone preview
+# project instead, named by PREVIEW_PROJECT in site.config.mjs, so a build can
+# be checked on a real *.pages.dev URL before production picks it up.
+#
+# Setup, once, only if you want the preview:
+#   1. npx wrangler login
+#      npx wrangler pages project create texts-preview --production-branch main
+#      Read the output: if the name is taken, Cloudflare assigns a suffixed
+#      *.pages.dev subdomain, and that assigned value is the one to visit.
 #   2. Cloudflare dashboard -> My Profile -> API Tokens -> Create Token,
 #      template "Edit Cloudflare Workers" (or a custom token with
 #      Account -> Cloudflare Pages -> Edit).
@@ -19,19 +24,16 @@ name: Deploy to Cloudflare Pages
 #   4. This repo -> Settings -> Secrets and variables -> Actions -> add
 #      CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
 #
-# Keep this on workflow_dispatch until it is green once, then uncomment the
-# push trigger and every commit to main publishes.
+# Manual only, deliberately. Nothing here should publish on a push.
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-pages
+  group: deploy-preview
   cancel-in-progress: false
 
 jobs:
@@ -66,7 +68,6 @@ jobs:
         run: npm run check
 
       # The project name comes from site.config.mjs so it is not repeated here.
-      # A deploy aimed at the wrong project replaces that project's site.
       - name: Resolve the deploy target
         run: node scripts/deploy-target.mjs >> "$GITHUB_ENV"
 
@@ -79,5 +80,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy ${{ env.PAGES_OUTDIR }} --project-name=${{ env.PAGES_PROJECT }} --branch=main
 
-      - name: Where it landed
-        run: echo "Deployed to https://$PAGES_HOST/texts/"
+      - name: Reminder
+        run: |
+          echo "Preview only. Production stays at https://$PROD_HOST/texts/"
+          echo "and updates when signal-site redeploys."
