@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sacred Texts Across Five Faiths — Timeline</title>
+<style>
+  /* ============ Google Fonts (degrades to local stacks offline) ============ */
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Karla:wght@400;500;700&family=Spline+Sans+Mono:wght@400;500&display=swap');
+
+  :root{
+    --ink:        #101319;   /* deep night-ink ground */
+    --ink-2:      #161a23;
+    --panel:      #1a1f2b;
+    --line:       #2a3040;
+    --parchment:  #ece5d6;   /* primary text */
+    --muted:      #8f8a99;
+    --faint:      #5c5868;
+
+    --hinduism:     #ff8b3d; /* saffron   */
+    --taoism:       #3ecfa3; /* jade      */
+    --judaism:      #5fa8ff; /* lapis     */
+    --christianity: #b78cff; /* violet    */
+    --buddhism:     #ffd166; /* gold      */
+
+    --display: "Fraunces", Georgia, "Times New Roman", serif;
+    --body:    "Karla", "Segoe UI", system-ui, sans-serif;
+    --mono:    "Spline Sans Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  html, body{ height:100%; }
+  body{
+    background:var(--ink);
+    color:var(--parchment);
+    font-family:var(--body);
+    overflow:hidden;
+  }
+
+  /* ============ Fixed overlay UI: title (top-left) + legend (top-right) ============ */
+  header{
+    position:fixed; inset:0 0 auto 0; z-index:100;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:22px 28px 34px;
+    background:linear-gradient(to bottom, rgba(16,19,25,.96) 30%, rgba(16,19,25,0));
+    pointer-events:none;
+  }
+  header > *{ pointer-events:auto; }
+
+  .masthead h1{
+    font-family:var(--display);
+    font-weight:600; font-size:clamp(20px, 2.4vw, 30px);
+    letter-spacing:.01em; line-height:1.1;
+  }
+  .masthead h1 em{ font-style:italic; font-weight:400; color:var(--muted); }
+  .masthead p{
+    margin-top:6px; font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  .legend{
+    display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;
+    max-width:46vw;
+  }
+  .legend-item{
+    display:flex; align-items:center; gap:8px;
+    font:500 12.5px/1 var(--body); letter-spacing:.04em; color:var(--parchment);
+    background:rgba(26,31,43,.72); border:1px solid var(--line); border-radius:999px;
+    padding:7px 13px 7px 9px; cursor:pointer;
+    transition:border-color .18s, background .18s, opacity .18s;
+  }
+  .legend-item svg{ width:15px; height:15px; color:var(--c); flex:none; }
+  .legend-item:hover{ border-color:var(--c); }
+  .legend-item.active{ border-color:var(--c); background:rgba(26,31,43,.95);
+    box-shadow:0 0 0 1px var(--c) inset; }
+  .legend-item:focus-visible{ outline:2px solid var(--parchment); outline-offset:2px; }
+
+  /* ============ Scroller + world ============ */
+  #scroller{
+    position:absolute; inset:0;
+    overflow-x:auto; overflow-y:hidden;
+    cursor:grab;
+  }
+  #scroller.grabbing{ cursor:grabbing; }
+  #scroller::-webkit-scrollbar{ height:9px; }
+  #scroller::-webkit-scrollbar-track{ background:var(--ink); }
+  #scroller::-webkit-scrollbar-thumb{ background:var(--line); border-radius:99px; }
+  #scroller::-webkit-scrollbar-thumb:hover{ background:var(--faint); }
+
+  #world{
+    position:relative; height:100%; min-height:640px;
+    /* width set by JS */
+  }
+
+  /* main axis */
+  #axis{
+    position:absolute; left:0; right:0; top:54%; height:2px;
+    background:linear-gradient(to right, transparent, var(--line) 60px, var(--line) calc(100% - 60px), transparent);
+  }
+
+  .tick{ position:absolute; top:54%; width:1px; background:var(--line); }
+  .tick.minor{ height:10px; transform:translateY(-5px); opacity:.55; }
+  .tick.major{ height:18px; transform:translateY(-9px); }
+  .tick-label{
+    position:absolute; top:calc(54% + 16px); transform:translateX(-50%);
+    font:500 11px var(--mono); letter-spacing:.08em; color:var(--faint);
+    white-space:nowrap; user-select:none;
+  }
+  .tick-label.major{ font-size:13px; color:var(--muted); }
+
+  .era-line{
+    position:absolute; top:8%; bottom:8%; width:1px;
+    background:linear-gradient(to bottom, transparent, rgba(236,229,214,.16), transparent);
+  }
+  .era-hint{
+    position:absolute; top:calc(54% + 38px); font:400 10px var(--mono);
+    letter-spacing:.22em; color:var(--faint); user-select:none;
+  }
+
+  .ghost-rule{ /* whisper-quiet verticals every 500 yrs */
+    position:absolute; top:0; bottom:0; width:1px; background:rgba(236,229,214,.035);
+  }
+
+  /* ============ Markers ============ */
+  .marker{ position:absolute; top:54%; width:0; height:0; }
+  .marker .stem{
+    position:absolute; left:-1px; width:2px;
+    background:linear-gradient(var(--dir), color-mix(in srgb, var(--c) 55%, transparent), transparent);
+    height:var(--stem);
+  }
+  .marker.up .stem{ bottom:0; --dir:to top; }
+  .marker.down .stem{ top:0; --dir:to bottom; }
+
+  .marker .dot{ /* anchor point on the axis */
+    position:absolute; left:-3px; top:-3px; width:6px; height:6px; border-radius:50%;
+    background:var(--c);
+  }
+
+  .icon{
+    position:absolute; left:-17px; width:34px; height:34px;
+    display:flex; align-items:center; justify-content:center;
+    background:color-mix(in srgb, var(--c) 13%, var(--ink-2));
+    border:1.5px solid var(--c); border-radius:50%;
+    color:var(--c); cursor:pointer;
+    transition:transform .22s cubic-bezier(.3,1.4,.5,1), opacity .18s, box-shadow .22s;
+  }
+  .icon svg{ width:18px; height:18px; }
+  .marker.up   .icon{ bottom:calc(var(--stem) - 8px); }
+  .marker.down .icon{ top:  calc(var(--stem) - 8px); }
+  .icon:hover{ transform:scale(1.12); box-shadow:0 0 18px color-mix(in srgb, var(--c) 45%, transparent); }
+  .icon:focus-visible{ outline:2px solid var(--parchment); outline-offset:3px; }
+
+  /* ============ The bloom: card in world space ============ */
+  .card{
+    position:absolute; left:calc(-140px + var(--shift, 0px)); width:280px;
+    background:linear-gradient(160deg, var(--panel), var(--ink-2));
+    border:1px solid color-mix(in srgb, var(--c) 55%, var(--line));
+    border-top:3px solid var(--c);
+    border-radius:10px;
+    padding:14px 16px 13px;
+    box-shadow:0 14px 40px rgba(0,0,0,.55), 0 0 24px color-mix(in srgb, var(--c) 14%, transparent);
+    opacity:0; pointer-events:none;
+    transform:scale(.5);
+    transition:opacity .2s ease, transform .26s cubic-bezier(.3,1.25,.45,1);
+  }
+  .marker.up   .card{ top:   calc(-1 * var(--stem) + 12px); transform-origin:calc(140px - var(--shift,0px)) 0; }
+  .marker.down .card{ bottom:calc(-1 * var(--stem) + 12px); transform-origin:calc(140px - var(--shift,0px)) 100%; }
+
+  .marker:hover, .marker.pinned, .marker:focus-within{ z-index:60; }
+  .marker:hover .card, .marker.pinned .card, .marker:focus-within .card{
+    opacity:1; transform:scale(1); pointer-events:auto;
+  }
+  .marker:hover .icon, .marker.pinned .icon, .marker:focus-within .icon{ opacity:0; }
+
+  /* stacked card contents: faith → sect → writing → year → source */
+  .card .faith-chip{
+    display:inline-block; font:700 10px var(--body); letter-spacing:.2em; text-transform:uppercase;
+    color:var(--ink); background:var(--c); border-radius:4px; padding:3px 7px;
+  }
+  .card .sect{
+    display:block; margin-top:8px;
+    font:500 11px var(--body); letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+  }
+  .card .name{
+    margin-top:4px; font-family:var(--display); font-weight:600;
+    font-size:18px; line-height:1.22; color:var(--parchment);
+  }
+  .card .year{
+    display:block; margin-top:7px;
+    font:400 12px var(--mono); color:color-mix(in srgb, var(--c) 80%, var(--parchment));
+  }
+  .card .src{
+    display:inline-block; margin-top:9px; padding-top:8px;
+    border-top:1px solid var(--line); width:100%;
+    font:500 12px var(--body); color:var(--muted); text-decoration:none;
+    transition:color .15s;
+  }
+  .card .src:hover{ color:var(--c); }
+  .card .src:focus-visible{ outline:2px solid var(--c); outline-offset:2px; }
+  .card .src::after{ content:" ↗"; font-size:11px; }
+
+  /* legend filtering */
+  .marker.dimmed{ opacity:.13; filter:saturate(.25); transition:opacity .25s, filter .25s; }
+  .marker{ transition:opacity .25s, filter .25s; }
+
+  /* ============ Footer hint ============ */
+  footer{
+    position:fixed; left:28px; bottom:18px; z-index:100;
+    font:400 11.5px/1.55 var(--body); color:var(--faint);
+    max-width:520px; pointer-events:none;
+  }
+  footer b{ color:var(--muted); font-weight:500; }
+
+  .edge-fade{ position:fixed; top:0; bottom:0; width:64px; z-index:90; pointer-events:none; }
+  .edge-fade.left { left:0;  background:linear-gradient(to right, var(--ink), transparent); }
+  .edge-fade.right{ right:0; background:linear-gradient(to left,  var(--ink), transparent); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition-duration:.01ms !important; }
+  }
+  @media (max-width:760px){
+    header{ flex-direction:column; gap:10px; }
+    .legend{ max-width:100%; justify-content:flex-start; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- one book glyph, reused everywhere, tinted via currentColor -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="book" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 6.2C10.1 4.8 7.7 4.3 5 4.3v13.4c2.7 0 5.1.5 7 1.9 1.9-1.4 4.3-1.9 7-1.9V4.3c-2.7 0-5.1.5-7 1.9Z"/>
+      <path d="M12 6.2v13.4"/>
+    </symbol>
+  </svg>
+
+  <header>
+    <div class="masthead">
+      <h1>Sacred Texts <em>across five faiths</em></h1>
+      <p>When the scriptures entered the scene · 1500 BCE – 1600 CE</p>
+    </div>
+    <nav class="legend" id="legend" aria-label="Faith legend — click to isolate a tradition"></nav>
+  </header>
+
+  <div id="scroller">
+    <div id="world"></div>
+  </div>
+
+  <div class="edge-fade left"></div>
+  <div class="edge-fade right"></div>
+
+  <footer>
+    <b>Drag or scroll sideways</b> to travel · hover a book to open it · click to pin (Esc closes).
+    Dates are mainstream scholarly estimates — many of these texts circulated orally for centuries before being written down.
+  </footer>
+
+<script>
+(() => {
+"use strict";
+/* ============================================================
+   DATA — { f: faith key, sect, name, y: plot year (negative = BCE),
+            yl: display label, url: source }
+   ============================================================ */
+const FAITHS = {
+  hinduism:     { label: "Hinduism",     color: "var(--hinduism)" },
+  taoism:       { label: "Taoism",       color: "var(--taoism)" },
+  judaism:      { label: "Judaism",      color: "var(--judaism)" },
+  christianity: { label: "Christianity", color: "var(--christianity)" },
+  buddhism:     { label: "Buddhism",     color: "var(--buddhism)" },
+};
+
+const W = "https://en.wikipedia.org/wiki/";
+
+const DATA = [
+  /* ---------- Hinduism ---------- */
+  { f:"hinduism", sect:"Vedic (Śruti)",              name:"Rigveda",                       y:-1400, yl:"c. 1500–1200 BCE",                          url:W+"Rigveda" },
+  { f:"hinduism", sect:"Vedic (Śruti)",              name:"Samaveda",                      y:-1150, yl:"c. 1200–1000 BCE",                          url:W+"Samaveda" },
+  { f:"hinduism", sect:"Vedic (Śruti)",              name:"Yajurveda",                     y:-1050, yl:"c. 1200–800 BCE",                           url:W+"Yajurveda" },
+  { f:"hinduism", sect:"Vedic (Śruti)",              name:"Atharvaveda",                   y:-950,  yl:"c. 1200–900 BCE",                           url:W+"Atharvaveda" },
+  { f:"hinduism", sect:"Vedanta (Śruti)",            name:"Principal Upanishads",          y:-650,  yl:"c. 800–500 BCE",                            url:W+"Upanishads" },
+  { f:"hinduism", sect:"Itihasa (Smriti)",           name:"Ramayana",                      y:-250,  yl:"c. 5th c. BCE – 1st c. CE",                 url:W+"Ramayana" },
+  { f:"hinduism", sect:"Itihasa (Smriti)",           name:"Mahabharata",                   y:0,     yl:"c. 400 BCE – 400 CE",                       url:W+"Mahabharata" },
+  { f:"hinduism", sect:"Dharmashastra (Smriti)",     name:"Manusmriti",                    y:25,    yl:"c. 2nd c. BCE – 2nd c. CE",                 url:W+"Manusmriti" },
+  { f:"hinduism", sect:"Vaishnava · in the Mahabharata", name:"Bhagavad Gita",             y:75,    yl:"c. 200 BCE – 200 CE",                       url:W+"Bhagavad_Gita" },
+  { f:"hinduism", sect:"Yoga (darshana)",            name:"Yoga Sutras of Patanjali",      y:250,   yl:"c. 2nd c. BCE – 4th c. CE",                 url:W+"Yoga_Sutras_of_Patanjali" },
+  { f:"hinduism", sect:"Vaishnava (Purana)",         name:"Bhagavata Purana",              y:900,   yl:"c. 800–1000 CE",                            url:W+"Bhagavata_Purana" },
+
+  /* ---------- Taoism ---------- */
+  { f:"taoism", sect:"Daojia (philosophical Taoism)", name:"Tao Te Ching (Daodejing)",     y:-350,  yl:"trad. 6th c. BCE · compiled c. 4th c. BCE", url:W+"Tao_Te_Ching" },
+  { f:"taoism", sect:"Daojia (philosophical Taoism)", name:"Zhuangzi",                     y:-300,  yl:"c. 4th–3rd c. BCE",                         url:W+"Zhuangzi_(book)" },
+  { f:"taoism", sect:"Han-era · Way of Great Peace",  name:"Taipingjing",                  y:150,   yl:"c. 1st–2nd c. CE",                          url:W+"Taiping_Jing" },
+  { f:"taoism", sect:"Daojia (received text)",        name:"Liezi",                        y:350,   yl:"compiled c. 4th c. CE",                     url:W+"Liezi" },
+  { f:"taoism", sect:"Shangqing (Highest Clarity)",   name:"Shangqing Revelations",        y:367,   yl:"364–370 CE",                                url:W+"Shangqing_School" },
+  { f:"taoism", sect:"Three Caverns (Liu Song canon)",name:"Daozang — first catalogue",    y:471,   yl:"c. 471 CE",                                 url:W+"Daozang" },
+  { f:"taoism", sect:"Tang-era classic",              name:"Qingjing Jing",                y:750,   yl:"c. 8th c. CE",                              url:W+"Qingjing_Jing" },
+  { f:"taoism", sect:"Zhengtong canon (Ming)",        name:"Zhengtong Daozang",            y:1445,  yl:"1445 CE",                                   url:W+"Daozang" },
+
+  /* ---------- Judaism ---------- */
+  { f:"judaism", sect:"Israelite · Second Temple",   name:"Nevi'im (Prophets)",            y:-600,  yl:"composed c. 8th–6th c. BCE",                url:W+"Nevi%27im" },
+  { f:"judaism", sect:"Israelite · Second Temple",   name:"Torah (Pentateuch)",            y:-450,  yl:"compiled c. 6th–5th c. BCE",                url:W+"Torah" },
+  { f:"judaism", sect:"Second Temple",               name:"Ketuvim (Writings)",            y:-300,  yl:"c. 5th–2nd c. BCE · canon set c. 100 CE",   url:W+"Ketuvim" },
+  { f:"judaism", sect:"Second Temple (Qumran)",      name:"Dead Sea Scrolls",              y:-125,  yl:"c. 250 BCE – 68 CE",                        url:W+"Dead_Sea_Scrolls" },
+  { f:"judaism", sect:"Rabbinic (Tannaitic)",        name:"Mishnah",                       y:200,   yl:"c. 200 CE",                                 url:W+"Mishnah" },
+  { f:"judaism", sect:"Rabbinic (Amoraic)",          name:"Jerusalem Talmud",              y:410,   yl:"c. 375–425 CE",                             url:W+"Jerusalem_Talmud" },
+  { f:"judaism", sect:"Rabbinic (Amoraic–Savoraic)", name:"Babylonian Talmud",             y:540,   yl:"c. 500–550 CE",                             url:W+"Talmud" },
+  { f:"judaism", sect:"Kabbalah",                    name:"Zohar",                         y:1280,  yl:"c. 1280s CE",                               url:W+"Zohar" },
+  { f:"judaism", sect:"Halakha (Sephardi codification)", name:"Shulchan Aruch",            y:1565,  yl:"1565 CE",                                   url:W+"Shulchan_Aruch" },
+
+  /* ---------- Christianity ---------- */
+  { f:"christianity", sect:"Apostolic",                  name:"Pauline Epistles",          y:55,    yl:"c. 50–60 CE",                               url:W+"Pauline_epistles" },
+  { f:"christianity", sect:"Early Church (Synoptic)",    name:"Gospel of Mark",            y:70,    yl:"c. 66–74 CE",                               url:W+"Gospel_of_Mark" },
+  { f:"christianity", sect:"Early Church (Synoptic)",    name:"Gospel of Matthew",         y:85,    yl:"c. 80–90 CE",                               url:W+"Gospel_of_Matthew" },
+  { f:"christianity", sect:"Early Church (Synoptic)",    name:"Gospel of Luke & Acts",     y:92,    yl:"c. 80–110 CE",                              url:W+"Gospel_of_Luke" },
+  { f:"christianity", sect:"Johannine (Apocalyptic)",    name:"Book of Revelation",        y:96,    yl:"c. 95–96 CE",                               url:W+"Book_of_Revelation" },
+  { f:"christianity", sect:"Johannine",                  name:"Gospel of John",            y:105,   yl:"c. 90–110 CE",                              url:W+"Gospel_of_John" },
+  { f:"christianity", sect:"Catholic–Orthodox consensus",name:"New Testament canon fixed", y:380,   yl:"367 CE (Athanasius) · 397 CE (Carthage)",   url:W+"Development_of_the_New_Testament_canon" },
+  { f:"christianity", sect:"Latin (Western) Church",     name:"Vulgate of Jerome",         y:398,   yl:"c. 382–405 CE",                             url:W+"Vulgate" },
+
+  /* ---------- Buddhism ---------- */
+  { f:"buddhism", sect:"Mahayana",               name:"Prajnaparamita Sutras",             y:-75,   yl:"c. 100 BCE – 100 CE",                       url:W+"Prajnaparamita" },
+  { f:"buddhism", sect:"Theravada",              name:"Pali Canon (Tipitaka) written down",y:-29,   yl:"c. 29 BCE · Fourth Council, Sri Lanka",     url:W+"Pali_Canon" },
+  { f:"buddhism", sect:"Mahayana",               name:"Lotus Sutra",                       y:120,   yl:"c. 100 BCE – 200 CE",                       url:W+"Lotus_Sutra" },
+  { f:"buddhism", sect:"Mahayana",               name:"Diamond Sutra",                     y:320,   yl:"c. 2nd–5th c. CE · oldest print 868 CE",    url:W+"Diamond_Sutra" },
+  { f:"buddhism", sect:"Theravada (commentary)", name:"Visuddhimagga",                     y:430,   yl:"c. 430 CE",                                 url:W+"Visuddhimagga" },
+  { f:"buddhism", sect:"Mahayana",               name:"Heart Sutra",                       y:600,   yl:"c. 5th–7th c. CE",                          url:W+"Heart_Sutra" },
+  { f:"buddhism", sect:"Chan (Zen)",             name:"Platform Sutra",                    y:780,   yl:"c. 780 CE",                                 url:W+"Platform_Sutra" },
+  { f:"buddhism", sect:"Vajrayana (Nyingma)",    name:"Bardo Thodol — Tibetan Book of the Dead", y:1350, yl:"8th-c. origin · revealed 14th c. CE",  url:W+"Bardo_Thodol" },
+];
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+const MIN_Y = -1600, MAX_Y = 1700;   // world bounds in years
+const SCALE = 1.25;                  // px per year
+const PAD   = 170;                   // px padding at each end
+const MIN_GAP = 50;                  // px between icons sharing a lane
+const STEM_BASE = 84, STEM_STEP = 58;
+const CARD_HALF = 140;
+
+const world = document.getElementById("world");
+const scroller = document.getElementById("scroller");
+const worldW = (MAX_Y - MIN_Y) * SCALE + PAD * 2;
+world.style.width = worldW + "px";
+
+const xOf = (y) => (y - MIN_Y) * SCALE + PAD;
+const fmtYear = (y) => (y < 0 ? `${-y} BCE` : `${y} CE`);
+
+/* ---- axis, ticks, era line, ghost rules ---- */
+let axisMarkup = `<div id="axis"></div>`;
+for (let y = -1500; y <= 1600; y += 100) {
+  if (y === 0) continue;
+  const x = xOf(y), major = y % 500 === 0;
+  axisMarkup += `<div class="tick ${major ? "major" : "minor"}" style="left:${x}px"></div>`;
+  if (major) {
+    axisMarkup += `<div class="tick-label major" style="left:${x}px">${fmtYear(y)}</div>`;
+    axisMarkup += `<div class="ghost-rule" style="left:${x}px"></div>`;
+  }
+}
+const x1 = xOf(1);
+axisMarkup += `<div class="era-line" style="left:${x1}px"></div>
+           <div class="tick major" style="left:${x1}px"></div>
+           <div class="tick-label major" style="left:${x1}px">1 CE</div>
+           <div class="era-hint" style="left:${x1 - 70}px">← BCE</div>
+           <div class="era-hint" style="left:${x1 + 34}px">CE →</div>`;
+world.insertAdjacentHTML("beforeend", axisMarkup);
+
+/* ---- lane assignment: lollipop collision offsets ----
+   Sorted by x; lanes are tried in the order up0, down0, up1, down1, …
+   The first lane whose last occupant is ≥ MIN_GAP away wins.        */
+const entries = DATA.map(d => ({ ...d, x: xOf(d.y) })).sort((a, b) => a.x - b.x);
+const lanes = { up: [], down: [] };
+
+for (const e of entries) {
+  let placed = false;
+  for (let i = 0; i < 10 && !placed; i++) {
+    for (const side of ["up", "down"]) {
+      const last = lanes[side][i] ?? -Infinity;
+      if (e.x - last >= MIN_GAP) {
+        e.side = side; e.lane = i;
+        lanes[side][i] = e.x;
+        placed = true; break;
+      }
+    }
+  }
+  if (!placed) { e.side = "up"; e.lane = 0; lanes.up[0] = e.x; } // unreachable fallback
+}
+
+/* ---- render markers ---- */
+const frag = document.createDocumentFragment();
+for (const e of entries) {
+  const stem = STEM_BASE + e.lane * STEM_STEP;
+  const shift = Math.max(0, 16 - (e.x - CARD_HALF)) + Math.min(0, (worldW - 16) - (e.x + CARD_HALF));
+
+  const m = document.createElement("div");
+  m.className = `marker ${e.side}`;
+  m.dataset.f = e.f;
+  m.style.cssText = `left:${e.x}px; --stem:${stem}px; --c:${FAITHS[e.f].color}; --shift:${shift}px;`;
+  m.innerHTML = `
+    <div class="stem"></div>
+    <div class="dot"></div>
+    <button class="icon" aria-label="${e.name} — ${FAITHS[e.f].label}, ${e.yl}">
+      <svg aria-hidden="true"><use href="#book"/></svg>
+    </button>
+    <div class="card" role="dialog" aria-label="${e.name}">
+      <span class="faith-chip">${FAITHS[e.f].label}</span>
+      <span class="sect">${e.sect}</span>
+      <h3 class="name">${e.name}</h3>
+      <span class="year">${e.yl}</span>
+      <a class="src" href="${e.url}" target="_blank" rel="noopener noreferrer">Source · Wikipedia</a>
+    </div>`;
+  frag.appendChild(m);
+}
+world.appendChild(frag);
+
+/* ============================================================
+   LEGEND  (hover = preview a faith, click = pin the filter)
+   ============================================================ */
+const legend = document.getElementById("legend");
+let pinnedFaith = null;
+
+for (const [key, { label, color }] of Object.entries(FAITHS)) {
+  const b = document.createElement("button");
+  b.className = "legend-item";
+  b.dataset.f = key;
+  b.style.setProperty("--c", color);
+  b.innerHTML = `<svg aria-hidden="true"><use href="#book"/></svg>${label}`;
+  b.addEventListener("mouseenter", () => applyFocus(key));
+  b.addEventListener("mouseleave", () => applyFocus(pinnedFaith));
+  b.addEventListener("click", () => {
+    pinnedFaith = pinnedFaith === key ? null : key;
+    legend.querySelectorAll(".legend-item").forEach(el =>
+      el.classList.toggle("active", el.dataset.f === pinnedFaith));
+    applyFocus(pinnedFaith);
+  });
+  legend.appendChild(b);
+}
+
+function applyFocus(faith) {
+  document.querySelectorAll(".marker").forEach(m =>
+    m.classList.toggle("dimmed", !!faith && m.dataset.f !== faith));
+}
+
+/* ============================================================
+   INTERACTION — wheel→horizontal, drag-to-pan, click-to-pin
+   ============================================================ */
+scroller.addEventListener("wheel", (ev) => {
+  if (Math.abs(ev.deltaY) > Math.abs(ev.deltaX)) {
+    scroller.scrollLeft += ev.deltaY;
+    ev.preventDefault();
+  }
+}, { passive: false });
+
+let dragging = false, dragMoved = false, startX = 0, startScroll = 0;
+scroller.addEventListener("pointerdown", (ev) => {
+  if (ev.target.closest("a")) return;
+  dragging = true; dragMoved = false;
+  startX = ev.clientX; startScroll = scroller.scrollLeft;
+  scroller.setPointerCapture(ev.pointerId);
+});
+scroller.addEventListener("pointermove", (ev) => {
+  if (!dragging) return;
+  const dx = ev.clientX - startX;
+  if (Math.abs(dx) > 4) { dragMoved = true; scroller.classList.add("grabbing"); }
+  scroller.scrollLeft = startScroll - dx;
+});
+const endDrag = () => { dragging = false; scroller.classList.remove("grabbing"); };
+scroller.addEventListener("pointerup", endDrag);
+scroller.addEventListener("pointercancel", endDrag);
+
+/* pin a card open on click / tap (handy on touch, where hover doesn't exist) */
+world.addEventListener("click", (ev) => {
+  if (dragMoved) return;
+  const icon = ev.target.closest(".icon");
+  const insideCard = ev.target.closest(".card");
+  document.querySelectorAll(".marker.pinned").forEach(m => {
+    if (!icon || m !== icon.closest(".marker")) m.classList.remove("pinned");
+  });
+  if (icon && !insideCard) icon.closest(".marker").classList.toggle("pinned");
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape")
+    document.querySelectorAll(".marker.pinned").forEach(m => m.classList.remove("pinned"));
+});
+})();
+</script>
+</body>
+</html>

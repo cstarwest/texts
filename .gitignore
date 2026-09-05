@@ -1,0 +1,52 @@
+# OS / filesystem cruft
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+._*
+
+# Editors / IDEs
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code local state
+.claude/settings.local.json
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+.cache/
+.parcel-cache/
+.next/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs & temp files
+*.log
+*.tmp
+*.bak
+*.orig
+tmp/
+temp/
