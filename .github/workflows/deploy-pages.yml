@@ -1,0 +1,83 @@
+name: Deploy to Cloudflare Pages
+
+# Direct-upload deploy. Pages, not Workers: a Workers custom domain requires
+# the zone to live on Cloudflare, and signalaegis.com stays on Google
+# nameservers because Workspace mail is there. Pages will serve a hostname
+# whose DNS is hosted elsewhere, via a CNAME to *.pages.dev.
+#
+# Setup, once — the full walkthrough is in docs/DEPLOY.md:
+#   1. Create the project (the dashboard no longer offers this; the CLI does):
+#        npx wrangler login
+#        npx wrangler pages project create <project> --production-branch main
+#      Record the *assigned* *.pages.dev subdomain from the output — if the
+#      name was taken Cloudflare suffixes it, and that assigned value, not the
+#      project name, is the CNAME target.
+#   2. Cloudflare dashboard -> My Profile -> API Tokens -> Create Token,
+#      template "Edit Cloudflare Workers" (or a custom token with
+#      Account -> Cloudflare Pages -> Edit).
+#   3. Account Home -> the account ID is in the right-hand sidebar.
+#   4. This repo -> Settings -> Secrets and variables -> Actions -> add
+#      CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
+#
+# Keep this on workflow_dispatch until it is green once, then uncomment the
+# push trigger and every commit to main publishes.
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Fail early if the secrets are missing
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$TOKEN" ] || [ -z "$ACCOUNT" ]; then
+            echo "::error::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to repo secrets first."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the site
+        run: npm run build
+
+      # Never publish a build that failed its own guards.
+      - name: Check the built site
+        run: npm run check
+
+      # The project name comes from site.config.mjs so it is not repeated here.
+      # A deploy aimed at the wrong project replaces that project's site.
+      - name: Resolve the deploy target
+        run: node scripts/deploy-target.mjs >> "$GITHUB_ENV"
+
+      # site/ carries the generated _redirects and _headers; Pages reads both
+      # from the uploaded directory, so routing and cache policy ship with it.
+      - name: Publish
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy ${{ env.PAGES_OUTDIR }} --project-name=${{ env.PAGES_PROJECT }} --branch=main
+
+      - name: Where it landed
+        run: echo "Deployed to https://$PAGES_HOST/texts/"

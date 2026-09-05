@@ -1,0 +1,43 @@
+name: CI
+
+# Builds the site the way Cloudflare Pages will, then runs the guards. No
+# toolchain beyond Node, so a broken build reports in well under a minute.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the site
+        run: npm run build
+
+      # See docs/DEPLOY-PLAYBOOK.md — these guards encode the invariants that
+      # decide whether an app works from a subpath. Every one of them passes
+      # when you open the file off disk and fails once it is served at /texts/.
+      - name: Check the built site
+        run: npm run check
+
+      - name: Upload the built site
+        uses: actions/upload-artifact@v4
+        with:
+          name: texts-site
+          path: site
+          if-no-files-found: error

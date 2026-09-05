@@ -1,0 +1,16 @@
+{
+  "name": "texts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Static reading tools, served from a subpath of apps.signalaegis.com",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check-site.mjs",
+    "verify": "npm run build && npm run check",
+    "deploy": "npm run verify && node scripts/deploy.mjs"
+  }
+}

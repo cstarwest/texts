@@ -29,6 +29,7 @@ pnpm-debug.log*
 .pnpm-store/
 
 # Build output
+site/
 dist/
 build/
 out/
